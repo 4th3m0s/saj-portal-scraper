@@ -51,20 +51,6 @@ Below is the full list of configuration options supported by the add-on:
 | `mqtt_topic`       | Topic used to publish filtered data                           |
 | `mqtt_device_name` | Friendly MQTT device name for Home Assistant                  |
 
----                                                    |
-| ------------------ | -------------------------------------------------------------- |
-| `saj_username`     | Login name or email for the SAJ portal                         |
-| `saj_password`     | Password for the SAJ portal                                    |
-| `mqtt_broker`      | Hostname/IP of the MQTT broker                                 |
-| `mqtt_port`        | MQTT port (default: 1883)                                      |
-| `mqtt_username`    | Optional MQTT username                                         |
-| `mqtt_password`    | Optional MQTT password                                         |
-| `mqtt_topic`       | Topic used to publish filtered data                             |
-| `scan_time`        | Delay in seconds after login to wait for incoming data          |
-| `saj_url`          | SAJ portal URL (if using an alternative domain)                 |
-| `screenshot_path`  | Directory path for error screenshots                            |
-
----
 
 ## 📦 Installation
 
