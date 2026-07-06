@@ -143,7 +143,7 @@ def run(playwright: Playwright):
     page.goto(f"{saj_url}/login")
     page.wait_for_timeout(1000)
     page.get_by_role("textbox", name="Username/Email").fill(username)
-    page.get_by_role("textbox", name="Please enter your password").fill(password)
+    page.get_by_role("textbox", name="Please enter").fill(password)
     page.get_by_role("button", name="Login").click()
 
     # Waitn
