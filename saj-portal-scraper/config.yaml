@@ -1,6 +1,6 @@
 name: "SAJ-Portal-Scraper"
 description: "SAJ-Portal-Scraper Add-on"
-version: "1.0.001"
+version: "1.0.002"
 slug: "saj-portal-scraper"
 boot: auto
 homeassistant_api: true
