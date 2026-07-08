@@ -5,17 +5,15 @@ from datetime import datetime
 import paho.mqtt.client as mqtt
 from importlib.metadata import version
 import sys
-
-#print("-----------------------------------------------------------------------------------")
-#print("playwright version:", version("playwright"))
-#print("paho-mqtt version:", version("paho-mqtt"))
+import os
+from glob import glob
 
 
 if "-v" in sys.argv:
-        print("-----------------------------------------------------------------------------------")
-        print("playwright version:", version("playwright"))
-        print("paho-mqtt version:", version("paho-mqtt"))
-        sys.exit(0)
+    print("-----------------------------------------------------------------------------------")
+    print("playwright version:", version("playwright"))
+    print("paho-mqtt version:", version("paho-mqtt"))
+    sys.exit(0)
 
 
 def load_config(config_file="/data/options.json"):
@@ -55,7 +53,7 @@ def filter_json_data(json_data, filter_fields):
             if field in json_data['data']:
                 filtered_data[field] = json_data['data'][field]
 
-    # errCode + errMsg prüfen
+    # errCode + errMsg pruefen
     for field in ['errCode', 'errMsg']:
         if field in json_data and field in filter_fields:
             filtered_data[field] = json_data[field]
@@ -106,6 +104,7 @@ def run(playwright: Playwright):
     username = config.get("saj_username")
     password = config.get("saj_password")
     saj_url = config.get("saj_url", "https://eop.saj-electric.com")
+    debug_api = config.get("debug", False)
 
     if not username or not password:
         print("❌ No user/password found!")
@@ -120,7 +119,11 @@ def run(playwright: Playwright):
     login_successful = False
 
     def handle_response(response):
-        if "getDeviceEneryFlowData" in response.url:
+        # Debug: alle API-Calls loggen, um den neuen Daten-Endpunkt zu finden
+        if debug_api and response.request.resource_type in ("xhr", "fetch"):
+            print(f"🔍 API: {response.status} {response.url}")
+
+        if "getDeviceEnergyFlowDiagram" in response.url:
             try:
                 json_data = response.json()
                 filtered_data = filter_json_data(json_data, filter_fields)
@@ -139,14 +142,23 @@ def run(playwright: Playwright):
 
     page.on("response", handle_response)
 
-    # Login
-    page.goto(f"{saj_url}/login")
-    page.wait_for_timeout(1000)
-    page.get_by_role("textbox", name="Username/Email").fill(username)
-    page.get_by_role("textbox", name="Please enter").fill(password)
-    page.get_by_role("button", name="Login").click()
+    # Login (neue SPA-Seite: warten bis das Formular gerendert ist)
+    try:
+        page.goto(f"{saj_url}/login")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_selector("#form_item_username", timeout=15000)
 
-    # Waitn
+        page.locator("#form_item_username").fill(username)
+        page.locator("#form_item_password").fill(password)
+
+        login_button = page.get_by_role("button", name="Login")
+        if login_button.count() == 0:
+            login_button = page.locator("span.button-content", has_text="Login")
+        login_button.first.click()
+    except Exception as e:
+        print(f"❌ Login Error: {e}")
+
+    # Warten auf Daten
     wait_time = config.get("scan_time", 30)
     print(f"⏳ Wait {wait_time}s for data…")
     page.wait_for_timeout(wait_time * 1000)
@@ -156,27 +168,27 @@ def run(playwright: Playwright):
 
     if not login_successful:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_file = f"{config.get('screenshot_path', '/addon_configs/local_saj-scraper/screenshot')}_failed_{timestamp}.png"
-        page.screenshot(path=screenshot_file)
-        print(f"📸 Screenshot saved: {screenshot_file}")
+        base_path = config.get('screenshot_path', '/addon_configs/local_saj-scraper/screenshot')
+        screenshot_file = f"{base_path}_failed_{timestamp}.png"
+        try:
+            page.screenshot(path=screenshot_file)
+            print(f"📸 Screenshot saved: {screenshot_file}")
+        except Exception as e:
+            print(f"⚠️ Screenshot Error: {e}")
+
         # === Nur die 5 neuesten Screenshots behalten ===
-        directory = os.path.dirname(base_path)  # Ordner extrahieren
+        directory = os.path.dirname(base_path)
         files = sorted(
             glob(os.path.join(directory, "*_failed_*.png")),
             key=os.path.getmtime,
             reverse=True
         )
-    
-        # Alle außer den ersten 5 löschen
         for old_file in files[5:]:
             try:
                 os.remove(old_file)
                 print(f"🗑️ Deleted old screenshot: {old_file}")
             except Exception as e:
-                print(f"⚠️ Error deleting file {old_file}: {e}")    
-        
-        
-        
+                print(f"⚠️ Error deleting file {old_file}: {e}")
 
     if mqtt_client:
         mqtt_client.disconnect()
